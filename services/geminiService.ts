@@ -88,23 +88,29 @@ export const generateSchemaWithGemini = async (urlInfo: UrlInfo, config: AiConfi
         const ai = getClient(config.apiKey);
         
         let optimizationPrompt = '';
-        if (urlInfo.selectedSchemaType === SchemaType.LocalBusiness && businessInfo?.name && businessInfo?.address) {
-            optimizationPrompt = `
-            **Local Business Information Provided:**
-            *   **Business Name:** ${businessInfo.name}
-            *   **Address:** ${businessInfo.address}
-            *   **Phone Number:** ${businessInfo.phone || 'Not provided'}
-            
-            You MUST use this exact information to construct the 'LocalBusiness' schema. Include 'address' (as a 'PostalAddress' object), 'telephone', and if possible, infer 'geo' ('GeoCoordinates') from the address.
-            `;
+        if (urlInfo.selectedSchemaType === SchemaType.LocalBusiness) {
+            if (businessInfo?.address) {
+                optimizationPrompt = `
+                \n**Local Business Information Provided:**
+                *   Business Name: ${businessInfo.name || 'N/A'}
+                *   Address: ${businessInfo.address}
+                *   Phone: ${businessInfo.phone || 'N/A'}
+                You MUST use this exact information to construct the 'LocalBusiness' schema. Include 'address' as a 'PostalAddress' object.`;
+            } else {
+                optimizationPrompt = `
+                \n**CRITICAL Local Business Directive:**
+                The user requested a 'LocalBusiness' schema but did NOT provide a structured address.
+                1.  First, meticulously scan the "Key Page Content" for a full physical address (street, city, state, postal code).
+                2.  If a plausible, complete address is found, use it to generate the 'LocalBusiness' schema.
+                3.  If no complete address can be confidently identified from the content, you MUST NOT invent one. Instead, you MUST generate an 'Organization' schema as a fallback. In the 'description' field of the 'Organization' schema, you must add the sentence: "A LocalBusiness schema could not be generated as a physical address was not found on the page."`;
+            }
         } else if ((urlInfo.selectedSchemaType === SchemaType.Organization || urlInfo.selectedSchemaType === SchemaType.Article) && businessInfo?.name) {
              optimizationPrompt = `
-            **Organization Information Provided:**
-            *   **Business/Organization Name:** ${businessInfo.name}
-            
-            Use this name for the 'publisher' or 'provider' \`Organization\` schema. This is a digital entity; do not invent a physical address unless one is explicitly mentioned in the page content.
-            `;
+            \n**Organization Information Provided:**
+            *   Name: ${businessInfo.name}
+            Use this name for the 'publisher' or 'provider' \`Organization\` schema. This is a digital entity; do not invent a physical address unless one is explicitly mentioned in the page content.`;
         }
+
 
         const pageContentSnippet = urlInfo.content ? urlInfo.content.substring(0, 4000) : '';
 
@@ -117,13 +123,13 @@ export const generateSchemaWithGemini = async (urlInfo: UrlInfo, config: AiConfi
             - **Primary Schema Type Requested:** "${urlInfo.selectedSchemaType}"
             - **Key Page Content:**
             ---
-            ${pageContentSnippet}
+            ${pageContentSnippet || '(No content scraped)'}
             ---
             ${optimizationPrompt}
 
             **Your Directives:**
 
-            1.  **Content-First Analysis:** Your PRIMARY directive is to base the schema on the **Key Page Content** provided. Extract real entities, facts, and relationships from the text. DO NOT invent information not present in the content.
+            1.  **Content-First Analysis:** Your PRIMARY directive is to base the schema on the **Key Page Content** provided. Extract real entities, facts, and relationships from the text. DO NOT invent information not present in the content. If content is missing, rely only on the Title and URL.
 
             2.  **Create a Knowledge Graph Fragment:** Construct a \`@graph\` of interconnected entities. Use \`@id\` with fragment identifiers (e.g., "#article", "#author") to link entities together.
 

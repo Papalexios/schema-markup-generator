@@ -6,7 +6,9 @@ import Card from './common/Card.tsx';
 import { ArrowLeftIcon } from './icons/ArrowLeftIcon.tsx';
 import { UploadCloudIcon } from './icons/UploadCloudIcon.tsx';
 import { AlertTriangleIcon } from './icons/AlertTriangleIcon.tsx';
+import { CheckCircleIcon } from './icons/CheckCircleIcon.tsx';
 import SchemaEditor from './SchemaEditor.tsx';
+import BulkValidationModal from './modals/BulkValidationModal.tsx';
 
 interface Step3ReviewProps {
   urls: UrlInfo[];
@@ -14,9 +16,11 @@ interface Step3ReviewProps {
   onInject: () => void;
   onBack: () => void;
   onUpdateSchema: (url: string, schema: object | null) => void;
+  onBulkValidate: () => void;
+  isBulkValidationVisible: boolean;
 }
 
-const Step3Review: React.FC<Step3ReviewProps> = ({ urls, progress, onInject, onBack, onUpdateSchema }) => {
+const Step3Review: React.FC<Step3ReviewProps> = ({ urls, progress, onInject, onBack, onUpdateSchema, onBulkValidate, isBulkValidationVisible }) => {
   const isComplete = progress.current === progress.total;
   const validCount = urls.filter(u => u.validationStatus === ValidationStatus.Valid).length;
   const invalidCount = urls.filter(u => u.validationStatus !== ValidationStatus.Valid && u.generationStatus === GenerationStatus.Success).length;
@@ -30,12 +34,28 @@ const Step3Review: React.FC<Step3ReviewProps> = ({ urls, progress, onInject, onB
   };
 
   return (
+    <>
+    <BulkValidationModal 
+      isOpen={isBulkValidationVisible}
+      onClose={() => onBulkValidate()}
+      urls={urls}
+    />
     <Card>
       <div className="p-6">
-        <h2 className="text-2xl font-bold text-white">4. Review & Validate Schema</h2>
-        <p className="mt-2 text-slate-400">
-          The app performs an initial validation for common errors. For definitive results, use the <span className="font-semibold text-slate-300">"Validate with Google"</span> button on each schema.
-        </p>
+        <div className="flex justify-between items-start">
+            <div>
+              <h2 className="text-2xl font-bold text-white">4. Review & Validate Schema</h2>
+              <p className="mt-2 text-slate-400">
+                The app performs an initial validation for common errors. For definitive results, use the <span className="font-semibold text-slate-300">"Validate with Google"</span> button on each schema.
+              </p>
+            </div>
+            {isComplete && (
+                <Button onClick={onBulkValidate} variant="secondary">
+                    <CheckCircleIcon className="mr-2 w-5 h-5" />
+                    Bulk Validate with Google
+                </Button>
+            )}
+        </div>
         
         {progress.total > 0 && (
           <div className="mt-4">
@@ -84,6 +104,7 @@ const Step3Review: React.FC<Step3ReviewProps> = ({ urls, progress, onInject, onB
         </div>
       </div>
     </Card>
+    </>
   );
 };
 

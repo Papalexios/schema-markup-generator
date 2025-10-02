@@ -43,6 +43,13 @@ export interface SitemapGroup {
   urls: string[];
 }
 
+export interface ValidationDetail {
+    code: 'MISSING_REQUIRED' | 'MISSING_RECOMMENDED' | 'INVALID_STRUCTURE' | 'INVALID_FORMAT' | 'MISSING_PRIMARY_ENTITY' | 'GENERIC_ERROR';
+    message: string;
+    property?: string;
+}
+
+
 export interface UrlInfo {
   url: string;
   title: string;
@@ -52,8 +59,8 @@ export interface UrlInfo {
   schema?: object | null;
   generationStatus: GenerationStatus;
   validationStatus: ValidationStatus;
-  validationErrors?: string[];
-  validationWarnings?: string[];
+  validationErrors?: ValidationDetail[];
+  validationWarnings?: ValidationDetail[];
   generationError?: string;
   analysisError?: string;
   injectionStatus?: 'pending' | 'success' | 'failed';

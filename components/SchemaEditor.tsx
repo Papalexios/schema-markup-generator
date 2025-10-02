@@ -103,7 +103,7 @@ const SchemaEditor: React.FC<SchemaEditorProps> = ({ urlInfo, onSchemaChange }) 
                 <div className="p-3 bg-red-900/20 text-red-300 text-xs border-b border-red-800">
                     <p className="font-bold mb-1">Validation Errors:</p>
                     <ul className="list-disc pl-5 space-y-1">
-                        {urlInfo.validationErrors.map((error, i) => <li key={i}>{error}</li>)}
+                        {urlInfo.validationErrors.map((error, i) => <li key={i}>{error.message}</li>)}
                     </ul>
                 </div>
              )}
@@ -111,7 +111,7 @@ const SchemaEditor: React.FC<SchemaEditorProps> = ({ urlInfo, onSchemaChange }) 
                 <div className="p-3 bg-yellow-900/20 text-yellow-300 text-xs border-b border-yellow-800">
                     <p className="font-bold mb-1">Validation Warnings (Schema is valid but could be improved):</p>
                     <ul className="list-disc pl-5 space-y-1">
-                        {urlInfo.validationWarnings.map((warning, i) => <li key={i}>{warning}</li>)}
+                        {urlInfo.validationWarnings.map((warning, i) => <li key={i}>{warning.message}</li>)}
                     </ul>
                 </div>
              )}

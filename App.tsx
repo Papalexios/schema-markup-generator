@@ -43,6 +43,8 @@ const App: React.FC = () => {
   
   const [generationProgress, setGenerationProgress] = useState({ current: 0, total: 0 });
   const [injectionResults, setInjectionResults] = useState<UrlInfo[]>([]);
+  
+  const [isBulkValidationVisible, setIsBulkValidationVisible] = useState(false);
 
   const addToast = (message: string, type: 'success' | 'error' = 'success') => {
     const id = Date.now();
@@ -219,23 +221,29 @@ const App: React.FC = () => {
     setLoadingMessage(`Starting injection for ${schemasToInject.length} schemas...`);
     addToast(`Starting injection for ${schemasToInject.length} schemas...`, 'success');
     
-    const results: UrlInfo[] = [];
-    let count = 0;
-    for (const urlInfo of schemasToInject) {
-        count++;
-        setLoadingMessage(`Injecting schema ${count} of ${schemasToInject.length}...`);
-        try {
-            const result = await injectSchema(wpCreds, urlInfo.url, urlInfo.schema!);
-            if (result.success) {
-                results.push({ ...urlInfo, injectionStatus: 'success' });
-            } else {
-                results.push({ ...urlInfo, injectionStatus: 'failed', injectionError: result.error });
-            }
-        } catch (e) {
-            results.push({ ...urlInfo, injectionStatus: 'failed', injectionError: e instanceof Error ? e.message : 'Unknown error' });
-        }
+    const BATCH_SIZE = 5;
+    const allResults: UrlInfo[] = [];
+    let processedCount = 0;
+
+    for (let i = 0; i < schemasToInject.length; i += BATCH_SIZE) {
+        const batch = schemasToInject.slice(i, i + BATCH_SIZE);
+        const currentBatchNumber = Math.floor(i / BATCH_SIZE) + 1;
+        const totalBatches = Math.ceil(schemasToInject.length / BATCH_SIZE);
+
+        setLoadingMessage(`Injecting batch ${currentBatchNumber} of ${totalBatches}... (${processedCount} of ${schemasToInject.length})`);
+
+        const promises = batch.map(urlInfo => 
+            injectSchema(wpCreds, urlInfo.url, urlInfo.schema!)
+                .then(result => ({ ...urlInfo, injectionStatus: result.success ? 'success' as const : 'failed' as const, injectionError: result.error }))
+                .catch(e => ({ ...urlInfo, injectionStatus: 'failed' as const, injectionError: e instanceof Error ? e.message : 'Unknown error' }))
+        );
+
+        const batchResults = await Promise.all(promises);
+        allResults.push(...batchResults);
+        processedCount += batch.length;
     }
-    setInjectionResults(results);
+
+    setInjectionResults(allResults);
     setStep('complete');
     setIsLoading(false);
     setLoadingMessage('');
@@ -264,7 +272,15 @@ const App: React.FC = () => {
       case 'url-list':
         return <Step2UrlList urls={urlList} selectedUrls={selectedUrls} setSelectedUrls={setSelectedUrls} onGenerate={handleGenerateSchema} onSchemaTypeChange={(url, type) => setUrlList(prev => prev.map(u => u.url === url ? {...u, selectedSchemaType: type} : u))} />;
       case 'review':
-        return <Step3Review urls={urlList.filter(u => selectedUrls.has(u.url))} progress={generationProgress} onInject={handleInject} onBack={() => setStep('url-list')} onUpdateSchema={handleUpdateSchema} />;
+        return <Step3Review 
+                  urls={urlList.filter(u => selectedUrls.has(u.url))} 
+                  progress={generationProgress} 
+                  onInject={handleInject} 
+                  onBack={() => setStep('url-list')} 
+                  onUpdateSchema={handleUpdateSchema}
+                  onBulkValidate={() => setIsBulkValidationVisible(true)}
+                  isBulkValidationVisible={isBulkValidationVisible}
+                />;
       case 'complete':
         return <Step4Complete results={injectionResults} onRestart={handleRestart} />;
     }
