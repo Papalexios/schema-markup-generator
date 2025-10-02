@@ -1,0 +1,5 @@
+{
+  "name": "AI Schema Markup Generator for WordPress",
+  "description": "An intelligent application that crawls a sitemap, detects missing schema markup on WordPress URLs, generates high-quality JSON-LD schema using AI, and injects it into your site via the REST API to boost SEO.",
+  "requestFramePermissions": []
+}

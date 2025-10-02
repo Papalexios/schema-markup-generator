@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Schema Markup Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+      :root {
+        --color-background: #0F172A; /* slate-900 */
+        --color-card: rgba(15, 23, 42, 0.7);
+        --color-border: #334155; /* slate-700 */
+        --color-text-primary: #f1f5f9; /* slate-100 */
+        --color-text-secondary: #94a3b8; /* slate-400 */
+        --color-text-tertiary: #64748b; /* slate-500 */
+        --color-primary: #6366f1; /* indigo-500 */
+        --color-primary-hover: #4f46e5; /* indigo-600 */
+        --color-secondary: #334155; /* slate-700 */
+        --color-secondary-hover: #475569; /* slate-600 */
+        --font-sans: 'Inter', sans-serif;
+      }
+      body {
+        font-family: var(--font-sans);
+        background-color: var(--color-background);
+        background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,0.05) 1px, transparent 0);
+        background-size: 2rem 2rem;
+      }
+      /* Custom Scrollbar */
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: rgba(15, 23, 42, 0.5);
+      }
+      ::-webkit-scrollbar-thumb {
+        background: var(--color-secondary);
+        border-radius: 4px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: var(--color-secondary-hover);
+      }
+      /* Toast Animation */
+      @keyframes toast-in {
+        from {
+          transform: translateX(100%);
+          opacity: 0;
+        }
+        to {
+          transform: translateX(0);
+          opacity: 1;
+        }
+      }
+      .animate-toast-in {
+        animation: toast-in 0.5s ease-in-out forwards;
+      }
+    </style>
+    <!-- SystemJS for dynamic module loading and in-browser transpilation -->
+    <script src="https://unpkg.com/systemjs@6.14.3/dist/s.min.js"></script>
+    <script src="https://unpkg.com/systemjs-plugin-babel@0.0.25/plugin-babel.js"></script>
+    <script src="https://unpkg.com/systemjs-plugin-babel@0.0.25/babel-transpiler.js"></script>
+  <script type="importmap">
+{
+  "imports": {
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.21.0"
+  }
+}
+</script>
+</head>
+  <body class="bg-slate-900">
+    <div id="root"></div>
+
+    <!-- SystemJS Configuration -->
+    <script type="systemjs-importmap">
+    {
+      "imports": {
+        "react": "https://esm.run/react@19.0.0-beta-26f2496093-20240514",
+        "react-dom/client": "https://esm.run/react-dom@19.0.0-beta-26f2496093-20240514/client",
+        "@google/genai": "https://esm.run/@google/genai"
+      }
+    }
+    </script>
+    <script>
+      System.config({
+        meta: {
+          '*.tsx': { loader: 'plugin-babel' },
+          '*.ts': { loader: 'plugin-babel' }
+        },
+        babelOptions: {
+          react: true,
+          typescript: true
+        },
+        map: {
+          'plugin-babel': 'https://unpkg.com/systemjs-plugin-babel@0.0.25/plugin-babel.js',
+          'systemjs-babel-build': 'https://unpkg.com/systemjs-plugin-babel@0.0.25/babel-transpiler.js'
+        },
+        transpiler: 'plugin-babel'
+      });
+      // Load the entry point of the application
+      System.import('/index.tsx').catch(function(err){ console.error(err); });
+    </script>
+  </body>
+</html>
