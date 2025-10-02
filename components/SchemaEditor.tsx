@@ -107,9 +107,9 @@ const SchemaEditor: React.FC<SchemaEditorProps> = ({ urlInfo, onSchemaChange }) 
                     </ul>
                 </div>
              )}
-             {(urlInfo.validationStatus === ValidationStatus.Valid && urlInfo.validationWarnings && urlInfo.validationWarnings.length > 0) && (
+             {(urlInfo.validationWarnings && urlInfo.validationWarnings.length > 0) && (
                 <div className="p-3 bg-yellow-900/20 text-yellow-300 text-xs border-b border-yellow-800">
-                    <p className="font-bold mb-1">Validation Warnings (Schema is valid but could be improved):</p>
+                    <p className="font-bold mb-1">Validation Warnings:</p>
                     <ul className="list-disc pl-5 space-y-1">
                         {urlInfo.validationWarnings.map((warning, i) => <li key={i}>{warning.message}</li>)}
                     </ul>
