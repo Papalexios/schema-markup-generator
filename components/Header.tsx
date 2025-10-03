@@ -19,6 +19,9 @@ const Header: React.FC = () => {
             <p className="text-sm text-slate-400">
                 For WordPress
             </p>
+            <p className="mt-1 block text-xs text-slate-500">
+                From the creators of <a href="https://affiliatemarketingforsuccess.com" target="_blank" rel="noopener noreferrer" className="hover:text-indigo-400 transition-colors underline-offset-2 hover:underline">AffiliateMarketingForSuccess.com</a>
+            </p>
             </div>
         </div>
     </header>

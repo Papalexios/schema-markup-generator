@@ -26,6 +26,39 @@ import Spinner from './components/common/Spinner';
 
 type AppStep = 'credentials' | 'sitemap-selection' | 'url-list' | 'review' | 'complete';
 
+const Footer: React.FC = () => (
+    <footer className="text-center py-10 mt-20 border-t border-slate-800 animate-fade-in-up" style={{ animationDelay: '800ms' }}>
+        <div className="flex flex-col items-center space-y-6">
+            <a href="https://affiliatemarketingforsuccess.com" target="_blank" rel="noopener noreferrer" className="block">
+                <img 
+                    src="https://affiliatemarketingforsuccess.com/wp-content/uploads/2023/03/cropped-Affiliate-Marketing-for-Success-Logo-Edited.png?lm=6666FEE0"
+                    alt="Affiliate Marketing for Success Logo"
+                    className="h-12 w-auto mx-auto transition-transform duration-300 hover:scale-105"
+                />
+            </a>
+            <div className="text-center">
+                <p className="text-sm text-slate-400">
+                    This App is Created by <span className="font-semibold text-slate-300">Alexios Papaioannou,</span>
+                </p>
+                <p className="text-sm text-slate-400">
+                    Owner of <a href="https://affiliatemarketingforsuccess.com" target="_blank" rel="noopener noreferrer" className="font-semibold text-slate-300 hover:text-indigo-400 transition-colors underline-offset-2 hover:underline">affiliatemarketingforsuccess.com</a>
+                </p>
+            </div>
+            <div className="flex justify-center items-center flex-wrap gap-x-4 gap-y-2 text-xs text-slate-500">
+                <a href="https://affiliatemarketingforsuccess.com/affiliate-marketing" target="_blank" rel="noopener noreferrer" className="hover:text-indigo-400 transition-colors">Affiliate Marketing</a>
+                <span className="text-slate-600" aria-hidden="true">·</span>
+                <a href="https://affiliatemarketingforsuccess.com/ai" target="_blank" rel="noopener noreferrer" className="hover:text-indigo-400 transition-colors">AI</a>
+                <span className="text-slate-600" aria-hidden="true">·</span>
+                <a href="https://affiliatemarketingforsuccess.com/seo" target="_blank" rel="noopener noreferrer" className="hover:text-indigo-400 transition-colors">SEO</a>
+                <span className="text-slate-600" aria-hidden="true">·</span>
+                <a href="https://affiliatemarketingforsuccess.com/blogging" target="_blank" rel="noopener noreferrer" className="hover:text-indigo-400 transition-colors">Blogging</a>
+                <span className="text-slate-600" aria-hidden="true">·</span>
+                <a href="https://affiliatemarketingforsuccess.com/review" target="_blank" rel="noopener noreferrer" className="hover:text-indigo-400 transition-colors">Reviews</a>
+            </div>
+        </div>
+    </footer>
+);
+
 const App: React.FC = () => {
   const [step, setStep] = useState<AppStep>('credentials');
   const [isLoading, setIsLoading] = useState(false);
@@ -388,6 +421,7 @@ const App: React.FC = () => {
                 )}
                 {renderStep()}
             </main>
+            <Footer />
         </div>
     </div>
   );

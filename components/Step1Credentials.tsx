@@ -66,8 +66,13 @@ const HtaccessSnippet = `
 </IfModule>
 `;
 
-// FIX: Changed icon type from React.FC<any> to React.ElementType to be more flexible and fix type inference issues.
-const FeatureCard = ({ icon: Icon, title, children }: { icon: React.ElementType, title: string, children: React.ReactNode }) => (
+// FIX: Refactored to use a separate interface and React.FC for better type inference with children, resolving the error where the 'children' prop was not being correctly identified.
+interface FeatureCardProps {
+    icon: React.ElementType;
+    title: string;
+    children: React.ReactNode;
+}
+const FeatureCard: React.FC<FeatureCardProps> = ({ icon: Icon, title, children }) => (
     <div className="relative p-6 bg-slate-800/50 rounded-lg border border-slate-700 hover:border-indigo-500/50 transition-colors duration-300">
         <div className="absolute -top-3 -left-3 bg-slate-800 p-2 rounded-full border border-slate-700">
             <Icon className="w-6 h-6 text-indigo-400" />
