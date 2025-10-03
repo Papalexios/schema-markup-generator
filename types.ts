@@ -3,6 +3,8 @@ export enum SchemaStatus {
   Found = 'Schema Found',
   NotFound = 'Schema Not Found',
   AnalysisFailed = 'Analysis Failed',
+  AuditRecommended = 'Audit Recommended',
+  Cached = 'Cached (Schema Found)',
 }
 
 export enum SchemaType {
@@ -13,6 +15,7 @@ export enum SchemaType {
   Organization = 'Organization',
   WebPage = 'WebPage',
   FAQPage = 'FAQPage',
+  HowTo = 'HowTo',
   VideoObject = 'VideoObject',
 }
 
@@ -57,6 +60,8 @@ export interface UrlInfo {
   selectedSchemaType: SchemaType;
   content?: string;
   schema?: object | null;
+  existingSchema?: object | null;
+  opportunities?: SchemaType[];
   generationStatus: GenerationStatus;
   validationStatus: ValidationStatus;
   validationErrors?: ValidationDetail[];

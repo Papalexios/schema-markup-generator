@@ -6,7 +6,10 @@ import { ArrowRightIcon } from './icons/ArrowRightIcon.tsx';
 import { ArrowLeftIcon } from './icons/ArrowLeftIcon.tsx';
 
 interface StepSitemapSelectionProps {
-  groups: SitemapGroup[];
+  categorizedSitemaps: {
+    primary: SitemapGroup[];
+    secondary: SitemapGroup[];
+  };
   onAnalyze: (selectedUrls: string[]) => void;
   onBack: () => void;
 }
@@ -15,7 +18,8 @@ const SitemapGroupItem: React.FC<{
   group: SitemapGroup;
   isSelected: boolean;
   onToggle: (sitemapUrl: string) => void;
-}> = ({ group, isSelected, onToggle }) => {
+  isPrimary: boolean;
+}> = ({ group, isSelected, onToggle, isPrimary }) => {
   const filename = group.sitemapUrl.substring(group.sitemapUrl.lastIndexOf('/') + 1);
 
   return (
@@ -34,82 +38,73 @@ const SitemapGroupItem: React.FC<{
             <p className="font-medium text-slate-200">{filename}</p>
             <p className="text-xs text-slate-400" title={group.sitemapUrl}>{group.sitemapUrl}</p>
         </div>
+        {isPrimary && <span className="text-xs font-bold text-indigo-300 bg-indigo-900/50 px-2 py-1 rounded-full">Primary Content</span>}
       </div>
       <span className="text-sm font-semibold text-slate-300">{group.urls.length.toLocaleString()} URLs</span>
     </li>
   );
 };
 
-const StepSitemapSelection: React.FC<StepSitemapSelectionProps> = ({ groups, onAnalyze, onBack }) => {
+const StepSitemapSelection: React.FC<StepSitemapSelectionProps> = ({ categorizedSitemaps, onAnalyze, onBack }) => {
+  const { primary, secondary } = categorizedSitemaps;
+  const allGroups = useMemo(() => [...primary, ...secondary], [primary, secondary]);
   const [selectedSitemaps, setSelectedSitemaps] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    // Pre-select sitemaps that are likely to contain valuable content (posts, pages)
-    const defaultSelection = new Set<string>();
-    groups.forEach(group => {
-      const url = group.sitemapUrl.toLowerCase();
-      if (url.includes('post') || url.includes('page')) {
-        defaultSelection.add(group.sitemapUrl);
-      }
-    });
+    // Pre-select sitemaps categorized as primary content by the AI
+    const defaultSelection = new Set<string>(primary.map(g => g.sitemapUrl));
     setSelectedSitemaps(defaultSelection);
-  }, [groups]);
+  }, [primary]);
 
   const toggleSitemap = (sitemapUrl: string) => {
     setSelectedSitemaps(prev => {
       const newSet = new Set(prev);
-      if (newSet.has(sitemapUrl)) {
-        newSet.delete(sitemapUrl);
-      } else {
-        newSet.add(sitemapUrl);
-      }
+      newSet.has(sitemapUrl) ? newSet.delete(sitemapUrl) : newSet.add(sitemapUrl);
       return newSet;
     });
   };
 
-  const selectAll = () => setSelectedSitemaps(new Set(groups.map(g => g.sitemapUrl)));
+  const selectAll = () => setSelectedSitemaps(new Set(allGroups.map(g => g.sitemapUrl)));
   const deselectAll = () => setSelectedSitemaps(new Set());
 
   const totalSelectedUrlCount = useMemo(() => {
-    return groups
+    return allGroups
       .filter(g => selectedSitemaps.has(g.sitemapUrl))
       .reduce((sum, group) => sum + group.urls.length, 0);
-  }, [groups, selectedSitemaps]);
+  }, [allGroups, selectedSitemaps]);
 
   const handleSubmit = () => {
-    const urlsToAnalyze = groups
+    const urlsToAnalyze = allGroups
       .filter(g => selectedSitemaps.has(g.sitemapUrl))
       .flatMap(g => g.urls);
-    const uniqueUrls = [...new Set(urlsToAnalyze)]; // De-duplicate just in case
-    onAnalyze(uniqueUrls);
+    onAnalyze([...new Set(urlsToAnalyze)]);
   };
 
-  const totalUrlCount = useMemo(() => groups.reduce((sum, g) => sum + g.urls.length, 0), [groups]);
+  const totalUrlCount = useMemo(() => allGroups.reduce((sum, g) => sum + g.urls.length, 0), [allGroups]);
 
   return (
     <Card>
       <div className="p-6">
         <h2 className="text-2xl font-bold text-white">2. Select Content to Analyze</h2>
         <p className="mt-2 text-slate-400">
-          We found {totalUrlCount.toLocaleString()} URLs across {groups.length} sitemaps. Select which groups you'd like to analyze for schema opportunities.
+          AI has categorized your sitemaps. We found {totalUrlCount.toLocaleString()} URLs across {allGroups.length} groups.
         </p>
       </div>
       <div className="border-t border-slate-700 p-6">
         <div className="flex flex-col sm:flex-row justify-between sm:items-center mb-4 gap-4">
           <div className="flex space-x-2 flex-wrap gap-2">
-            <Button onClick={selectAll} variant="secondary">Select All ({groups.length})</Button>
+            <Button onClick={selectAll} variant="secondary">Select All ({allGroups.length})</Button>
             <Button onClick={deselectAll} variant="secondary" disabled={selectedSitemaps.size === 0}>Deselect All</Button>
           </div>
           <p className="text-sm text-slate-300 font-medium">{totalSelectedUrlCount.toLocaleString()} URL(s) selected</p>
         </div>
         <ul className="space-y-3 max-h-[50vh] overflow-y-auto pr-2">
-          {groups.map(group => (
-            <SitemapGroupItem
-              key={group.sitemapUrl}
-              group={group}
-              isSelected={selectedSitemaps.has(group.sitemapUrl)}
-              onToggle={toggleSitemap}
-            />
+          {primary.map(group => (
+            <SitemapGroupItem key={group.sitemapUrl} group={group} isSelected={selectedSitemaps.has(group.sitemapUrl)} onToggle={toggleSitemap} isPrimary={true}/>
+          ))}
+          {secondary.length > 0 && primary.length > 0 && <hr className="border-slate-700 my-4" />}
+          {secondary.map(group => (
+            <SitemapGroupItem key={group.sitemapUrl} group={group} isSelected={selectedSitemaps.has(group.sitemapUrl)} onToggle={toggleSitemap} isPrimary={false}/>
           ))}
         </ul>
       </div>

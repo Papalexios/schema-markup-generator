@@ -56,6 +56,11 @@ const validationRules: Record<SchemaType, { required: string[], recommended: str
         required: ['mainEntity'],
         recommended: [],
     },
+    // FIX: Added missing HowTo schema validation rules.
+    [SchemaType.HowTo]: {
+        required: ['name', 'step'],
+        recommended: ['totalTime', 'estimatedCost', 'supply', 'tool'],
+    },
     [SchemaType.VideoObject]: {
         required: ['name', 'description', 'uploadDate', 'thumbnailUrl'],
         recommended: ['duration', 'contentUrl'],

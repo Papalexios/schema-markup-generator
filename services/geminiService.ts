@@ -1,4 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 import { UrlInfo, AiConfig, BusinessInfo, SchemaType } from '../types.ts';
 
 // This file requires the `@google/genai` package.
@@ -131,13 +131,13 @@ export const generateSchemaWithGemini = async (urlInfo: UrlInfo, config: AiConfi
 
             1.  **Content-First Analysis:** Your PRIMARY directive is to base the schema on the **Key Page Content** provided. Extract real entities, facts, and relationships from the text. DO NOT invent information not present in the content. If content is missing, rely only on the Title and URL.
 
-            2.  **Create a Knowledge Graph Fragment:** Construct a \`@graph\` of interconnected entities. Use \`@id\` with fragment identifiers (e.g., "#article", "#author") to link entities together.
+            2.  **Create a Knowledge Graph Fragment:** Construct a \`@graph\` of interconnected entities. The \`@id\` for the primary entity (e.g., Article, Product) MUST be the canonical URL of the page itself. All other entities in the graph must use fragment identifiers (e.g., "${urlInfo.url}#author").
 
-            3.  **Primary Entity:** The main entity should be of the type "${urlInfo.selectedSchemaType}". Give it a clear \`@id\` (e.g., "#${urlInfo.selectedSchemaType.toLowerCase()}"). This entity should be the most detailed, with properties populated from the page content.
+            3.  **Primary Entity:** The main entity should be of the type "${urlInfo.selectedSchemaType}". Give it a clear \`@id\` matching the page URL. This entity should be the most detailed, with properties populated from the page content.
 
             4.  **Embed E-E-A-T Signals from Content:**
-                *   **Author (\`Person\`):** If the content mentions an author, create a detailed \`Person\` schema with \`@id\`, \`name\`, and other details found in the text. Link the main entity to this author.
-                *   **Publisher (\`Organization\`):** Create a publisher \`Organization\` schema. Use the business name if provided, otherwise infer from content. Link the main entity to this publisher.
+                *   **Author (\`Person\`):** If an author is mentioned, create a detailed \`Person\` schema. Actively search the content for social media links (LinkedIn, X, Facebook, etc.) for the author and include them in a \`sameAs\` array.
+                *   **Publisher (\`Organization\`):** Create a publisher \`Organization\` schema. Use the business name if provided, otherwise infer from content. Search for social media links for the organization and include them in a \`sameAs\` array.
 
             5.  **WebPage and Context:**
                 *   Always include a \`WebPage\` schema. Link it to the primary entity via \`mainEntityOfPage\`.
@@ -145,7 +145,7 @@ export const generateSchemaWithGemini = async (urlInfo: UrlInfo, config: AiConfi
 
             6.  **Strict Google Compliance:**
                 *   All dates (e.g., \`datePublished\`, \`dateModified\`) must be in ISO 8601 format. Infer them from the text if available.
-                *   Images (\`image\`, \`logo\`) must be \`ImageObject\` schemas with \`url\`, \`width\`, and \`height\`.
+                *   Images (\`image\`, \`logo\`) MUST be \`ImageObject\` schemas with \`url\`, \`width\`, and \`height\`. If image dimensions are not available in the content, you MUST set \`width\` and \`height\` to null. Do not omit them.
                 *   Ensure all required properties for the chosen schema types are present and populated with data from the content.
 
             Your output must be a valid JSON object representing the schema.
@@ -168,5 +168,124 @@ export const generateSchemaWithGemini = async (urlInfo: UrlInfo, config: AiConfi
             throw new Error(`AI generation failed: ${error.message}`);
         }
         throw new Error('An unknown error occurred during AI schema generation.');
+    }
+};
+
+export const categorizeSitemapsWithGemini = async (
+    sitemapUrls: string[],
+    config: AiConfig
+): Promise<{ primary: string[], secondary: string[] }> => {
+    try {
+        const ai = getClient(config.apiKey);
+        const prompt = `
+            You are an SEO expert. Below is a list of sitemap URLs from a WordPress site. Categorize them into 'Primary Content' (posts, pages, products) and 'Secondary Content' (categories, tags, authors, archives). Your response must be a valid JSON object with two keys: "primary" and "secondary", containing the respective URLs.
+
+            Sitemap URL List:
+            ${sitemapUrls.join('\n')}
+        `;
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: prompt,
+            config: { responseMimeType: 'application/json' }
+        });
+        return JSON.parse(response.text);
+    } catch (error) {
+        console.error("Error categorizing sitemaps with Gemini:", error);
+        // Fallback to keyword-based categorization on failure
+        return {
+            primary: sitemapUrls.filter(url => /post|page|product/i.test(url)),
+            secondary: sitemapUrls.filter(url => !/post|page|product/i.test(url)),
+        };
+    }
+};
+
+export const auditAndUpgradeSchemaWithGemini = async (
+    urlInfo: UrlInfo,
+    config: AiConfig,
+    businessInfo?: BusinessInfo
+): Promise<object> => {
+    try {
+        const ai = getClient(config.apiKey);
+        const pageContentSnippet = urlInfo.content ? urlInfo.content.substring(0, 4000) : '';
+        const existingSchemaSnippet = urlInfo.existingSchema ? JSON.stringify(urlInfo.existingSchema, null, 2).substring(0, 2000) : '';
+
+        const prompt = `
+            You are a schema markup auditor and SEO expert. Your task is to analyze existing schema and page content, then generate a new, vastly improved schema.
+
+            **Analysis Data:**
+            - **URL:** ${urlInfo.url}
+            - **Page Title:** "${urlInfo.title}"
+            - **Existing Schema (Partial):** 
+            \`\`\`json
+            ${existingSchemaSnippet}
+            \`\`\`
+            - **Key Page Content:**
+            ---
+            ${pageContentSnippet}
+            ---
+
+            **Your Directives:**
+            1.  **Audit:** Compare the existing schema with the page content. Identify discrepancies, missing recommended properties, and opportunities for enhancement (e.g., adding an author found in the text but missing from schema).
+            2.  **Generate Upgraded Schema:** Discard the old schema. Create a new, complete, and E-E-A-T rich JSON-LD schema \`@graph\` based on the page content.
+            3.  **Follow Best Practices:**
+                *   The \`@id\` for the primary entity MUST be the canonical URL of the page. Other entities use fragment identifiers (e.g., "${urlInfo.url}#author").
+                *   Actively search content for author/publisher social media links and add them to a \`sameAs\` array.
+                *   Images MUST be \`ImageObject\` schemas. If dimensions are unknown, set \`width\` and \`height\` to null.
+                *   Include \`WebPage\` and \`BreadcrumbList\` schemas.
+
+            Your output must be a single, valid JSON object for the new, upgraded schema.
+        `;
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: prompt,
+            config: { responseMimeType: 'application/json' }
+        });
+        return JSON.parse(response.text);
+    } catch (error) {
+        console.error(`Error auditing schema with Gemini for ${urlInfo.url}:`, error);
+        throw new Error('AI schema audit failed.');
+    }
+};
+
+export const detectSchemaOpportunitiesWithGemini = async (
+    content: string,
+    config: AiConfig
+): Promise<SchemaType[]> => {
+    if (!content) return [];
+    try {
+        const ai = getClient(config.apiKey);
+        const prompt = `
+            Analyze the following page content. Does it contain patterns suitable for FAQPage (a list of questions and answers) or HowTo (step-by-step instructions) schema?
+            
+            **Content Snippet:**
+            ---
+            ${content.substring(0, 3000)}
+            ---
+
+            Respond with a valid JSON object.
+        `;
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: prompt,
+            config: {
+                responseMimeType: 'application/json',
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        opportunities: {
+                            type: Type.ARRAY,
+                            items: { type: Type.STRING },
+                        },
+                    },
+                },
+            },
+        });
+        const parsed = JSON.parse(response.text);
+        const validOpportunities = [SchemaType.FAQPage, SchemaType.HowTo];
+        // Filter to ensure AI doesn't return unsupported types
+        return (parsed.opportunities || []).filter((op: SchemaType) => validOpportunities.includes(op));
+    } catch (error) {
+        console.error("Error detecting schema opportunities with Gemini:", error);
+        return [];
     }
 };

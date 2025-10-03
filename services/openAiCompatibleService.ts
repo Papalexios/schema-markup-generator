@@ -16,13 +16,13 @@ const PROVIDER_CONFIG = {
     },
     [AiProvider.Groq]: {
         baseURL: 'https://api.groq.com/openai/v1',
-        defaultModel: 'llama3-8b-8192', // Default, but user provides
+        defaultModel: 'llama3-8b-8192',
         authHeader: (key: string) => `Bearer ${key}`,
         apiKeyHeader: 'Authorization'
     },
     [AiProvider.OpenRouter]: {
         baseURL: 'https://openrouter.ai/api/v1',
-        defaultModel: 'nous-hermes-2-mixtral-8x7b-dpo', // Default, but user provides
+        defaultModel: 'nous-hermes-2-mixtral-8x7b-dpo',
         authHeader: (key: string) => `Bearer ${key}`,
         apiKeyHeader: 'Authorization'
     }
@@ -55,11 +55,8 @@ const callApi = async (endpoint: string, config: AiConfig, body: object) => {
     return response.json();
 };
 
-
 export const validateOpenAiCompatibleKey = async (config: AiConfig): Promise<boolean> => {
     try {
-        // A lightweight call to the models endpoint is a good way to validate a key.
-        // For claude, this endpoint doesn't exist, so we do a cheap message call.
         if (config.provider === AiProvider.Claude) {
              await callApi('/messages', config, {
                 model: PROVIDER_CONFIG[config.provider].defaultModel,
@@ -67,7 +64,6 @@ export const validateOpenAiCompatibleKey = async (config: AiConfig): Promise<boo
                 max_tokens: 1
             });
         } else {
-            // For OpenAI-like APIs, listing models is usually a free or very cheap operation.
             const providerConfig = PROVIDER_CONFIG[config.provider];
             const response = await fetch(`${providerConfig.baseURL}/models`, {
                 headers: { [providerConfig.apiKeyHeader]: providerConfig.authHeader(config.apiKey) }
@@ -103,17 +99,12 @@ export const suggestSchemaTypesWithOpenAI = async (
     try {
         const response = await callApi('/chat/completions', config, {
             model,
-            messages: [
-                { role: 'system', content: systemPrompt },
-                { role: 'user', content: userPrompt }
-            ],
+            messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }],
             response_format: { type: "json_object" },
             temperature: 0.2,
         });
-
         const content = response.choices[0].message.content;
         const parsed = JSON.parse(content);
-
         const validatedSuggestions: { [url: string]: SchemaType } = {};
         for (const url in parsed) {
             const type = parsed[url] as SchemaType;
@@ -136,27 +127,10 @@ export const generateSchemaWithOpenAI = async (
     businessInfo?: BusinessInfo
 ): Promise<object> => {
      let optimizationPrompt = '';
-     if (urlInfo.selectedSchemaType === SchemaType.LocalBusiness) {
-        if (businessInfo?.address) {
-            optimizationPrompt = `
-            \n**Local Business Information Provided:**
-            *   Business Name: ${businessInfo.name || 'N/A'}
-            *   Address: ${businessInfo.address}
-            *   Phone: ${businessInfo.phone || 'N/A'}
-            You MUST use this exact information to construct the 'LocalBusiness' schema. Include 'address' as a 'PostalAddress' object.`;
-        } else {
-            optimizationPrompt = `
-            \n**CRITICAL Local Business Directive:**
-            The user requested a 'LocalBusiness' schema but did NOT provide a structured address.
-            1.  First, meticulously scan the "Key Page Content" for a full physical address (street, city, state, postal code).
-            2.  If a plausible, complete address is found, use it to generate the 'LocalBusiness' schema.
-            3.  If no complete address can be confidently identified from the content, you MUST NOT invent one. Instead, you MUST generate an 'Organization' schema as a fallback. In the 'description' field of the 'Organization' schema, you must add the sentence: "A LocalBusiness schema could not be generated as a physical address was not found on the page."`;
-        }
-    } else if ((urlInfo.selectedSchemaType === SchemaType.Organization || urlInfo.selectedSchemaType === SchemaType.Article) && businessInfo?.name) {
-         optimizationPrompt = `
-        \n**Organization Information Provided:**
-        *   Name: ${businessInfo.name}
-        Use this name for the 'publisher' or 'provider' \`Organization\` schema. This is a digital entity; do not invent a physical address unless one is explicitly mentioned in the page content.`;
+    if (urlInfo.selectedSchemaType === SchemaType.LocalBusiness && businessInfo?.address) {
+        optimizationPrompt = `\n**Local Business Info:** Use this exact info: Name: ${businessInfo.name}, Address: ${businessInfo.address}, Phone: ${businessInfo.phone}.`;
+    } else if (businessInfo?.name) {
+        optimizationPrompt = `\n**Organization Info:** Use this name for the publisher: ${businessInfo.name}.`;
     }
 
     const pageContentSnippet = urlInfo.content ? urlInfo.content.substring(0, 4000) : '';
@@ -164,49 +138,28 @@ export const generateSchemaWithOpenAI = async (
     const systemPrompt = "Act as an expert SEO Engineer and Knowledge Graph specialist. Your task is to generate a deeply interconnected and E-E-A-T rich JSON-LD schema graph for a webpage, based on its content. Your output must be a valid JSON object representing the schema. Do not include any markdown formatting like ```json.";
 
     const userPrompt = `
-            **Webpage Details:**
-            - **URL:** ${urlInfo.url}
-            - **Page Title:** "${urlInfo.title || 'Untitled Page'}"
-            - **Primary Schema Type Requested:** "${urlInfo.selectedSchemaType}"
-            - **Key Page Content:**
-            ---
-            ${pageContentSnippet || '(No content scraped)'}
-            ---
-            ${optimizationPrompt}
+        **Webpage Details:**
+        - URL: ${urlInfo.url}
+        - Title: "${urlInfo.title || 'Untitled Page'}"
+        - Primary Schema Type Requested: "${urlInfo.selectedSchemaType}"
+        - Key Page Content: --- ${pageContentSnippet || '(No content scraped)'} ---
+        ${optimizationPrompt}
 
-            **Your Directives:**
+        **Directives:**
+        1.  **Content-First:** Base the schema on the provided content. Do not invent information.
+        2.  **Knowledge Graph:** Construct a \`@graph\`. The \`@id\` for the primary entity MUST be the canonical page URL. Other entities use fragment identifiers (e.g., "${urlInfo.url}#author").
+        3.  **E-E-A-T Signals:** Find author/publisher social media links in the content and add them to a \`sameAs\` array.
+        4.  **Strict Compliance:** Images MUST be \`ImageObject\` schemas. If dimensions are unknown, set \`width\` and \`height\` to null. Dates must be ISO 8601. Include \`WebPage\` and \`BreadcrumbList\`.
 
-            1.  **Content-First Analysis:** Your PRIMARY directive is to base the schema on the **Key Page Content** provided. Extract real entities, facts, and relationships from the text. DO NOT invent information not present in the content. If content is missing, rely only on the Title and URL.
-
-            2.  **Create a Knowledge Graph Fragment:** Construct a \`@graph\` of interconnected entities. Use \`@id\` with fragment identifiers (e.g., "#article", "#author") to link entities together.
-
-            3.  **Primary Entity:** The main entity should be of the type "${urlInfo.selectedSchemaType}". Give it a clear \`@id\` (e.g., "#${urlInfo.selectedSchemaType.toLowerCase()}"). This entity should be the most detailed, with properties populated from the page content.
-
-            4.  **Embed E-E-A-T Signals from Content:**
-                *   **Author (\`Person\`):** If the content mentions an author, create a detailed \`Person\` schema with \`@id\`, \`name\`, and other details found in the text. Link the main entity to this author.
-                *   **Publisher (\`Organization\`):** Create a publisher \`Organization\` schema. Use the business name if provided, otherwise infer from content. Link the main entity to this publisher.
-
-            5.  **WebPage and Context:**
-                *   Always include a \`WebPage\` schema. Link it to the primary entity via \`mainEntityOfPage\`.
-                *   Include a \`BreadcrumbList\` schema if the page structure can be inferred.
-
-            6.  **Strict Google Compliance:**
-                *   All dates (e.g., \`datePublished\`, \`dateModified\`) must be in ISO 8601 format. Infer them from the text if available.
-                *   Images (\`image\`, \`logo\`) must be \`ImageObject\` schemas with \`url\`, \`width\`, and \`height\`.
-                *   Ensure all required properties for the chosen schema types are present and populated with data from the content.
-
-            Respond with the JSON object and nothing else.
-        `;
+        Respond with the JSON object and nothing else.
+    `;
 
     const model = config.model || PROVIDER_CONFIG[config.provider]?.defaultModel;
 
     try {
         const response = await callApi('/chat/completions', config, {
             model,
-            messages: [
-                { role: 'system', content: systemPrompt },
-                { role: 'user', content: userPrompt }
-            ],
+            messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }],
             response_format: { type: "json_object" },
             temperature: 0.3,
         });
@@ -215,9 +168,85 @@ export const generateSchemaWithOpenAI = async (
         return JSON.parse(content);
     } catch (error) {
         console.error(`Error generating schema with ${config.provider} for ${urlInfo.url}:`, error);
-        if (error instanceof Error) {
-            throw new Error(`AI generation failed: ${error.message}`);
-        }
-        throw new Error('An unknown error occurred during AI schema generation.');
+        throw new Error(`AI generation failed: ${error instanceof Error ? error.message : 'Unknown Error'}`);
+    }
+};
+
+export const categorizeSitemapsWithOpenAI = async (
+    sitemapUrls: string[],
+    config: AiConfig
+): Promise<{ primary: string[], secondary: string[] }> => {
+    const model = config.model || PROVIDER_CONFIG[config.provider]?.defaultModel;
+    const systemPrompt = `You are an SEO expert. Categorize sitemap URLs into 'primary' (posts, pages, products) and 'secondary' (tags, categories, etc.). Respond with a valid JSON object: {"primary": [...], "secondary": [...]}.`;
+    const userPrompt = `Sitemap URLs:\n${sitemapUrls.join('\n')}`;
+
+    try {
+        const response = await callApi('/chat/completions', config, {
+            model,
+            messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }],
+            response_format: { type: "json_object" }
+        });
+        return JSON.parse(response.choices[0].message.content);
+    } catch (error) {
+        console.error("Error categorizing sitemaps:", error);
+        return {
+            primary: sitemapUrls.filter(url => /post|page|product/i.test(url)),
+            // FIX: Corrected typo from `sitemapsUrls` to `sitemapUrls`.
+            secondary: sitemapUrls.filter(url => !/post|page|product/i.test(url)),
+        };
+    }
+};
+
+export const auditAndUpgradeSchemaWithOpenAI = async (
+    urlInfo: UrlInfo,
+    config: AiConfig,
+    businessInfo?: BusinessInfo
+): Promise<object> => {
+    const model = config.model || PROVIDER_CONFIG[config.provider]?.defaultModel;
+    const systemPrompt = "You are a schema markup auditor and SEO expert. Analyze the provided existing schema and page content, then generate a new, vastly improved schema graph. Your output must be a single, valid JSON object.";
+    const userPrompt = `
+        **Analysis Data:**
+        - URL: ${urlInfo.url}
+        - Existing Schema: ${JSON.stringify(urlInfo.existingSchema, null, 2).substring(0, 2000)}
+        - Key Page Content: ${urlInfo.content?.substring(0, 4000)}
+
+        **Task:**
+        Audit the existing schema against the content. Then, create a new, complete, E-E-A-T rich schema \`@graph\`, following all modern best practices (canonical \`@id\`, fragment identifiers, \`sameAs\` properties, \`ImageObject\`, etc.).
+    `;
+
+    try {
+        const response = await callApi('/chat/completions', config, {
+            model,
+            messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }],
+            response_format: { type: "json_object" }
+        });
+        return JSON.parse(response.choices[0].message.content);
+    } catch (error) {
+        console.error(`Error auditing schema with ${config.provider}:`, error);
+        throw new Error('AI schema audit failed.');
+    }
+};
+
+export const detectSchemaOpportunitiesWithOpenAI = async (
+    content: string,
+    config: AiConfig
+): Promise<SchemaType[]> => {
+    if (!content) return [];
+    const model = config.model || PROVIDER_CONFIG[config.provider]?.defaultModel;
+    const systemPrompt = `Analyze page content. Identify if it's suitable for FAQPage or HowTo schema. Respond with a valid JSON object: {"opportunities": ["FAQPage", "HowTo"]}. If none, return an empty array.`;
+    const userPrompt = `Content Snippet:\n---\n${content.substring(0, 3000)}`;
+
+    try {
+        const response = await callApi('/chat/completions', config, {
+            model,
+            messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }],
+            response_format: { type: "json_object" }
+        });
+        const parsed = JSON.parse(response.choices[0].message.content);
+        const validOpportunities = [SchemaType.FAQPage, SchemaType.HowTo];
+        return (parsed.opportunities || []).filter((op: SchemaType) => validOpportunities.includes(op));
+    } catch (error) {
+        console.error("Error detecting schema opportunities:", error);
+        return [];
     }
 };

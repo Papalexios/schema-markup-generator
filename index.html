@@ -8,7 +8,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <style>
       :root {
         --color-background: #0F172A; /* slate-900 */
@@ -26,8 +26,10 @@
       body {
         font-family: var(--font-sans);
         background-color: var(--color-background);
-        background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,0.05) 1px, transparent 0);
-        background-size: 2rem 2rem;
+        background-image:
+          radial-gradient(ellipse 80% 80% at 50% -20%, rgba(124, 58, 237, 0.3), rgba(255, 255, 255, 0)),
+          radial-gradient(circle at 1px 1px, rgba(255,255,255,0.05) 1px, transparent 0);
+        background-size: 100% 100%, 2rem 2rem;
       }
       /* Custom Scrollbar */
       ::-webkit-scrollbar {
@@ -57,6 +59,21 @@
       }
       .animate-toast-in {
         animation: toast-in 0.5s ease-in-out forwards;
+      }
+      /* Fade in Up Animation */
+      @keyframes fade-in-up {
+        from {
+          opacity: 0;
+          transform: translateY(20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      .animate-fade-in-up {
+        animation: fade-in-up 0.6s ease-out forwards;
+        animation-fill-mode: both;
       }
     </style>
     <!-- SystemJS for dynamic module loading and in-browser transpilation -->
